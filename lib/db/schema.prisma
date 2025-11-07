@@ -7,3 +7,34 @@ datasource db {
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
+
+model User {
+  id              String    @id
+  email           String    @unique
+  comments        Comment[]
+  gender          String?
+  race            String?
+  townOfResidence String?
+}
+
+model Bill {
+  id                String    @id
+  comments          Comment[]
+  billTitle         String
+  billType          String
+  billDescription   String
+  billLocation      String
+  numberOfUpvotes   Int
+  numberOfDownvotes Int
+  level             String
+  policyArea        String
+}
+
+model Comment {
+  id     String @id
+  text   String
+  bill   Bill   @relation(fields: [billId], references: [id])
+  billId String
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+}
