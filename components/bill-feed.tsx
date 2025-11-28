@@ -17,7 +17,7 @@ interface Bill {
 }
 
 interface BillFeedProps {
-  bills: Bill[]
+  bills: any;
   userId: string
 }
 
@@ -33,10 +33,16 @@ export function BillFeed({ bills, userId }: BillFeedProps) {
     )
   }
 
+  let billsToDisplay = bills;
+
+  if (billsToDisplay?.length > 50) {
+    billsToDisplay = billsToDisplay.slice(0, 50);
+  }
+
   return (
     <div className="space-y-6">
-      {bills.map((bill) => (
-        <BillCard key={bill.id} bill={bill} userId={userId} />
+      {billsToDisplay.map((bill: any, index: number) => (
+        <BillCard key={index} bill={bill} userId={userId} />
       ))}
     </div>
   )
