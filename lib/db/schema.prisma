@@ -9,12 +9,14 @@ datasource db {
 }
 
 model User {
-  id              String    @id
-  email           String    @unique
-  comments        Comment[]
-  gender          String?
-  race            String?
-  townOfResidence String?
+  id               String    @id @default(uuid())
+  email            String    @unique
+  comments         Comment[]
+  gender           String?
+  race             String?
+  state            String?
+  dateOfBirth      String?
+  politicalLeaning String?
 }
 
 model Bill {

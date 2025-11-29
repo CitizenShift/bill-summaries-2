@@ -2,13 +2,16 @@
 import { DataTable } from "@/components/data-table";
 import { useQuery } from "@tanstack/react-query";
 import { useApiService } from "@/services/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function HomePage() {
   const apiService = useApiService();
+  const { user } = useAuth();
+  const state = user?.user_metadata?.state || "FL";
 
   const getSessions = async () => {
     try {
-      const response: any = await apiService.get("/api/sessions");
+      const response: any = await apiService.get(`/api/sessions?state=${state}`);
       return response?.data?.sessions;
     } catch (error: any) {
       console.error(error);
