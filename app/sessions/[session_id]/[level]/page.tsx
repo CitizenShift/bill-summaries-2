@@ -3,11 +3,12 @@ import { useApiService} from "@/services/api";
 import { useQuery } from "@tanstack/react-query";
 import { BillFeed } from "@/components/bill-feed"
 import { useParams } from "next/navigation";
-import {mockComments, mockVotes} from "@/lib/mock-data";
+import { mockComments, mockVotes } from "@/lib/mock-data";
 
 export default function SessionPage() {
     const params = useParams();
     const session_id = params?.session_id;
+    const level = params?.level;
     const apiService = useApiService();
 
     const getSessionMasterList = async () => {
@@ -31,7 +32,7 @@ export default function SessionPage() {
         bill_number: bill?.number,
         title: bill?.title,
         summary: bill?.description,
-        level: "state",
+        level,
         jurisdiction: "United States",
         status: bill?.status,
         policy_area: "Unknown",

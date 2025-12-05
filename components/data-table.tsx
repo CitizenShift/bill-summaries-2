@@ -14,13 +14,14 @@ import { useRouter } from "next/navigation";
 
 interface DataTableProps {
     rows: any;
+    level: string;
 }
 
-export function DataTable({ rows } : DataTableProps) {
+export function DataTable({ rows, level } : DataTableProps) {
     const router = useRouter();
 
     const handleViewClick = (session_id: string) => {
-        router.push(`/sessions/${session_id}`);
+        router.push(`/sessions/${session_id}/${level}`);
     }
 
     return (
@@ -43,7 +44,7 @@ export function DataTable({ rows } : DataTableProps) {
                         <TableCell>{row?.session_tag}</TableCell>
                         <TableCell className="text-right">{row?.name}</TableCell>
                         <TableCell className="text-right">
-                            <Button size="icon-sm" aria-label="Submit" variant="outline" onClick={() => handleViewClick(row?.session_id)}>
+                            <Button size="icon-sm" aria-label="Submit" variant="outline" onClick={() => handleViewClick(row?.session_id)} className="cursor-pointer">
                                 <ArrowRight />
                             </Button>
                         </TableCell>
