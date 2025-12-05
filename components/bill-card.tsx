@@ -12,6 +12,9 @@ import { BillDetailsDialog } from "@/components/bill-details-dialog"
 import { ShareDialog } from "@/components/share-dialog"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
+import { useAuth } from "@/contexts/AuthContext";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+import { useApiService } from "@/services/api";
 
 interface Bill {
   id: string
@@ -36,8 +39,9 @@ interface BillCardProps {
 }
 
 export function BillCard({ bill, userId, isPremium = false }: BillCardProps) {
-  const [upvotes, setUpvotes] = useState(bill.upvotes)
-  const [downvotes, setDownvotes] = useState(bill.downvotes)
+  const { user } = useAuth();
+  const apiService = useApiService();
+  const queryClient = useQueryClient();
   const [userVote, setUserVote] = useState<"upvote" | "downvote" | null>(bill.userVote)
   const [showComments, setShowComments] = useState(false)
   const [showContactDialog, setShowContactDialog] = useState(false)
@@ -49,65 +53,38 @@ export function BillCard({ bill, userId, isPremium = false }: BillCardProps) {
   const { toast } = useToast()
   const router = useRouter()
 
-  const handleVote = async (voteType: "upvote" | "downvote") => {
-    const previousVote = userVote
-    const previousUpvotes = upvotes
-    const previousDownvotes = downvotes
-
-    // Optimistic update
-    if (userVote === voteType) {
-      setUserVote(null)
-      if (voteType === "upvote") {
-        setUpvotes((prev) => prev - 1)
-      } else {
-        setDownvotes((prev) => prev - 1)
-      }
-    } else if (userVote) {
-      setUserVote(voteType)
-      if (voteType === "upvote") {
-        setUpvotes((prev) => prev + 1)
-        setDownvotes((prev) => prev - 1)
-      } else {
-        setDownvotes((prev) => prev + 1)
-        setUpvotes((prev) => prev - 1)
-      }
-    } else {
-      setUserVote(voteType)
-      if (voteType === "upvote") {
-        setUpvotes((prev) => prev + 1)
-      } else {
-        setDownvotes((prev) => prev + 1)
-      }
+  const getBillVotes = async () => {
+    try {
+      const response: any = await apiService.get(`/api/vote?billId=${bill.id}`);
+      return response?.votes;
+    } catch (error) {
+      console.log(error);
     }
-
-    startTransition(async () => {
-      try {
-        const response = await fetch("/api/votes", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ billId: bill.id, voteType }),
-        })
-
-        const result = await response.json()
-
-        if (!response.ok) {
-          throw new Error(result.error || "Failed to vote")
-        }
-
-        router.refresh()
-      } catch (error) {
-        // Revert optimistic update on error
-        setUserVote(previousVote)
-        setUpvotes(previousUpvotes)
-        setDownvotes(previousDownvotes)
-        toast({
-          title: "Error",
-          description: error instanceof Error ? error.message : "Failed to vote",
-          variant: "destructive",
-        })
-      }
-    })
   }
+
+  const { data: votes } = useQuery({
+    queryKey: ["getVotes", bill.id],
+    queryFn: getBillVotes,
+  });
+
+  const upvotes = votes?.filter((vote: any) => vote?.voteType === "upvote")?.length || 0;
+  const downvotes = (votes?.length - upvotes) || 0;
+
+  const handleVote = async (voteType: string) => {
+    try {
+      const vote = await apiService.post(`/api/vote?billId=${bill.id}`, { voteType });
+      return vote;
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
+  const makeVoteMutation = useMutation({
+    mutationFn: handleVote,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["getVotes", bill.id] });
+    }
+  });
 
   const handleSave = () => {
     setIsSaved(!isSaved)
@@ -182,28 +159,28 @@ export function BillCard({ bill, userId, isPremium = false }: BillCardProps) {
           </CardContent>
 
           <CardFooter className="flex items-center justify-between border-t bg-muted/30 px-4 py-3">
-            <div className="flex items-center gap-1">
+            {user ? (<div className="flex items-center gap-1">
               <Button
                   variant="ghost"
                   size="sm"
                   className={cn("gap-1", userVote === "upvote" && "text-green-600 dark:text-green-400")}
-                  onClick={() => handleVote("upvote")}
+                  onClick={() => makeVoteMutation.mutate("upvote")}
                   disabled={isPending}
               >
-                <ArrowBigUp className={cn("h-5 w-5", userVote === "upvote" && "fill-current")} />
+                <ArrowBigUp className={cn("h-5 w-5", userVote === "upvote" && "fill-current")}/>
                 <span className="text-sm font-medium">{upvotes}</span>
               </Button>
               <Button
                   variant="ghost"
                   size="sm"
                   className={cn("gap-1", userVote === "downvote" && "text-red-600 dark:text-red-400")}
-                  onClick={() => handleVote("downvote")}
+                  onClick={() => makeVoteMutation.mutate("downvote")}
                   disabled={isPending}
               >
-                <ArrowBigDown className={cn("h-5 w-5", userVote === "downvote" && "fill-current")} />
+                <ArrowBigDown className={cn("h-5 w-5", userVote === "downvote" && "fill-current")}/>
                 <span className="text-sm font-medium">{downvotes}</span>
               </Button>
-            </div>
+            </div>) : null}
 
             <div className="flex items-center gap-2">
               <Button variant="ghost" size="sm" className="gap-2" onClick={() => setShowComments(!showComments)}>

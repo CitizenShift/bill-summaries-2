@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { states } from "@/utils/constants/constants";
+import { states } from "@/app/utils/constants/constants";
 
 import { useState } from "react"
 import Link from "next/link"
