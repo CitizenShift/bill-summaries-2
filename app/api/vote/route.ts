@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
         const billId = searchParams.get("billId");
 
         if (!billId) {
-            return NextResponse.json({ error: "No billId" }, { status: 404 });
+            return NextResponse.json({ error: "No billId" }, { status: 400 });
         }
 
         const votes = await prisma.vote.findMany({
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
         const billId = searchParams.get("billId");
 
         if (!billId) {
-            return NextResponse.json({ error: "No billId" }, { status: 404 });
+            return NextResponse.json({ error: "No billId" }, { status: 400 });
         }
 
         const { data: { user }, error } = await supabase.auth.getUser();

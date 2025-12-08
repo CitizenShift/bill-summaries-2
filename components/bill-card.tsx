@@ -4,17 +4,17 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ArrowBigUp, ArrowBigDown, MessageSquare, Mail, Bookmark, Bell, Lock, Share2 } from "lucide-react"
-import { useState, useTransition } from "react"
+import { useState } from "react"
 import { cn } from "@/lib/utils"
 import { CommentsSection } from "@/components/comments-section"
 import { ContactLegislatorDialog } from "@/components/contact-legislator-dialog"
 import { BillDetailsDialog } from "@/components/bill-details-dialog"
 import { ShareDialog } from "@/components/share-dialog"
 import { useToast } from "@/hooks/use-toast"
-import { useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useApiService } from "@/services/api";
+import { useInView } from "@/hooks/use-in-view";
 
 interface Bill {
   id: string
@@ -34,27 +34,47 @@ interface Bill {
 
 interface BillCardProps {
   bill: Bill
-  userId: string
   isPremium?: boolean
 }
 
-export function BillCard({ bill, userId, isPremium = false }: BillCardProps) {
+export function BillCard({ bill, isPremium = false }: BillCardProps) {
+  const { ref, isInView } = useInView({ rootMargin: "300px" });
   const { user } = useAuth();
   const apiService = useApiService();
   const queryClient = useQueryClient();
-  const [userVote, setUserVote] = useState<"upvote" | "downvote" | null>(bill.userVote)
+  const [userVote, setUserVote] = useState<"upvote" | "downvote" | null>(null);
   const [showComments, setShowComments] = useState(false)
   const [showContactDialog, setShowContactDialog] = useState(false)
   const [showDetailsDialog, setShowDetailsDialog] = useState(false)
   const [showShareDialog, setShowShareDialog] = useState(false)
   const [isSaved, setIsSaved] = useState(false)
   const [isTracked, setIsTracked] = useState(false)
-  const [isPending, startTransition] = useTransition()
   const { toast } = useToast()
-  const router = useRouter()
+
+  const getAllComments = async () => {
+    try {
+      if (!user) {
+        return []
+      }
+      const response: any = await apiService.get(`/api/comments?billId=${bill.id}`);
+      return response?.comments || [];
+    } catch (error) {
+      console.log(error)
+    }
+  }
+
+  const { data: comments, isLoading, error } = useQuery({
+    queryKey: ["getAllComments", bill.id],
+    queryFn: getAllComments,
+    enabled: isInView,
+    staleTime: 60_000,
+  });
 
   const getBillVotes = async () => {
     try {
+      if (!user) {
+        return [];
+      }
       const response: any = await apiService.get(`/api/vote?billId=${bill.id}`);
       return response?.votes;
     } catch (error) {
@@ -65,6 +85,8 @@ export function BillCard({ bill, userId, isPremium = false }: BillCardProps) {
   const { data: votes } = useQuery({
     queryKey: ["getVotes", bill.id],
     queryFn: getBillVotes,
+    enabled: isInView,
+    staleTime: 60_000
   });
 
   const upvotes = votes?.filter((vote: any) => vote?.voteType === "upvote")?.length || 0;
@@ -72,6 +94,15 @@ export function BillCard({ bill, userId, isPremium = false }: BillCardProps) {
 
   const handleVote = async (voteType: string) => {
     try {
+      const existingVote = votes?.find((vote: any) => vote?.userId === user?.id);
+      if (existingVote) {
+        toast({
+          description: "You can only vote once on a bill!"
+        });
+        return;
+      }
+
+      setUserVote(voteType as "upvote" | "downvote" | null);
       const vote = await apiService.post(`/api/vote?billId=${bill.id}`, { voteType });
       return vote;
     } catch (error) {
@@ -126,7 +157,7 @@ export function BillCard({ bill, userId, isPremium = false }: BillCardProps) {
   }
 
   return (
-      <>
+      <div ref={ref}>
         <Card className="overflow-hidden">
           <CardHeader className="space-y-3 pb-4">
             <div className="flex items-start justify-between gap-2">
@@ -165,7 +196,7 @@ export function BillCard({ bill, userId, isPremium = false }: BillCardProps) {
                   size="sm"
                   className={cn("gap-1", userVote === "upvote" && "text-green-600 dark:text-green-400")}
                   onClick={() => makeVoteMutation.mutate("upvote")}
-                  disabled={isPending}
+                  disabled={makeVoteMutation?.isPending}
               >
                 <ArrowBigUp className={cn("h-5 w-5", userVote === "upvote" && "fill-current")}/>
                 <span className="text-sm font-medium">{upvotes}</span>
@@ -175,7 +206,7 @@ export function BillCard({ bill, userId, isPremium = false }: BillCardProps) {
                   size="sm"
                   className={cn("gap-1", userVote === "downvote" && "text-red-600 dark:text-red-400")}
                   onClick={() => makeVoteMutation.mutate("downvote")}
-                  disabled={isPending}
+                  disabled={makeVoteMutation?.isPending}
               >
                 <ArrowBigDown className={cn("h-5 w-5", userVote === "downvote" && "fill-current")}/>
                 <span className="text-sm font-medium">{downvotes}</span>
@@ -183,10 +214,10 @@ export function BillCard({ bill, userId, isPremium = false }: BillCardProps) {
             </div>) : null}
 
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" className="gap-2" onClick={() => setShowComments(!showComments)}>
-                <MessageSquare className="h-4 w-4" />
-                <span className="text-sm">{bill.commentCount}</span>
-              </Button>
+              {user ? (<Button variant="ghost" size="sm" className="gap-2" onClick={() => setShowComments(!showComments)}>
+                <MessageSquare className="h-4 w-4"/>
+                <span className="text-sm">{comments?.length}</span>
+              </Button>) : null}
               <Button
                   variant="ghost"
                   size="sm"
@@ -224,7 +255,7 @@ export function BillCard({ bill, userId, isPremium = false }: BillCardProps) {
             </div>
           </CardFooter>
 
-          {showComments && <CommentsSection billId={bill.id} userId={userId} />}
+          {showComments && user && <CommentsSection billId={bill.id} userId={user?.id} comments={comments} isLoading={isLoading} />}
         </Card>
 
         <BillDetailsDialog bill={bill} open={showDetailsDialog} onOpenChange={setShowDetailsDialog} />
@@ -238,6 +269,6 @@ export function BillCard({ bill, userId, isPremium = false }: BillCardProps) {
             open={showContactDialog}
             onOpenChange={setShowContactDialog}
         />
-      </>
+      </div>
   )
 }

@@ -1,5 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { mockComments, addComment, removeComment, mockUsers } from "@/lib/mock-data"
+import { createClient } from "@/app/utils/supabase/server";
+import { cookies } from "next/headers";
+import { prisma } from "@/lib/db/prisma";
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,19 +12,25 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Bill ID required" }, { status: 400 })
     }
 
-    const comments = mockComments
-      .filter((c) => c.bill_id === billId)
-      .map((comment) => {
-        const user = mockUsers.find((u) => u.id === comment.user_id)
-        return {
-          ...comment,
-          user: {
-            full_name: user?.full_name || "Anonymous User",
-            email: user?.email || "",
-          },
-        }
-      })
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    const billComments = await prisma.comment.findMany({
+      where: {
+        billId
+      },
+      include: {
+        user: true
+      },
+      orderBy: {
+        createdAt: "desc"
+      }
+    }) || [];
+
+    const comments = billComments?.map((comment: any) => ({
+      ...comment,
+      user: {
+        full_name: comment?.user?.name || "Anonymous User",
+        email: comment?.user?.email || ""
+      }
+    }));
 
     return NextResponse.json({ comments })
   } catch (error) {
@@ -32,45 +40,38 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const guestUserId = "guest"
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
+    const { searchParams } = new URL(request.url);
+    const billId = searchParams?.get("billId");
 
-    const { billId, content } = await request.json()
+    if (!billId) {
+      return NextResponse.json({ error: "Bill ID required" }, { status: 400 });
+    }
+
+    const { data: { user }, error } = await supabase.auth.getUser();
+
+    if (error || !user?.id) {
+      return NextResponse.json({ error: "Not authorized to get content" }, { status: 401 });
+    }
+
+    const { content } = await request.json()
 
     if (!content?.trim()) {
       return NextResponse.json({ error: "Comment cannot be empty" }, { status: 400 })
     }
 
-    const newComment = addComment({
-      user_id: guestUserId,
-      bill_id: billId,
-      content: content.trim(),
+    const newComment = await prisma.comment.create({
+      data: {
+        userId: user.id,
+        billId,
+        content
+      }
     })
 
-    return NextResponse.json({ success: true, comment: newComment })
+    return NextResponse.json({ content: "Successfully created comment" }, { status: 201 });
   } catch (error) {
-    return NextResponse.json({ error: "Failed to add comment" }, { status: 500 })
-  }
-}
-
-export async function DELETE(request: NextRequest) {
-  try {
-    const guestUserId = "guest"
-
-    const { searchParams } = new URL(request.url)
-    const commentId = searchParams.get("commentId")
-
-    if (!commentId) {
-      return NextResponse.json({ error: "Comment ID required" }, { status: 400 })
-    }
-
-    const comment = mockComments.find((c) => c.id === commentId)
-    if (!comment || comment.user_id !== guestUserId) {
-      return NextResponse.json({ error: "Not authorized" }, { status: 403 })
-    }
-
-    removeComment(commentId)
-    return NextResponse.json({ success: true })
-  } catch (error) {
-    return NextResponse.json({ error: "Failed to delete comment" }, { status: 500 })
+    console.error("COMMENT ERROR:", error);
+    return NextResponse.json({ error: "Failed to add comment" }, { status: 500 });
   }
 }

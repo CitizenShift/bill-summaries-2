@@ -29,8 +29,7 @@ model Vote {
 }
 
 model Bill {
-  id                String    @id
-  comments          Comment[]
+  id                String @id
   billTitle         String
   billType          String
   billDescription   String
@@ -42,10 +41,10 @@ model Bill {
 }
 
 model Comment {
-  id     String @id
-  text   String
-  bill   Bill   @relation(fields: [billId], references: [id])
-  billId String
-  user   User   @relation(fields: [userId], references: [id])
-  userId String
+  id        String   @id @default(uuid())
+  content   String
+  billId    String
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  createdAt DateTime @default(now())
 }

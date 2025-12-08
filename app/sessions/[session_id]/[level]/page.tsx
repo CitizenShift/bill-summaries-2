@@ -64,7 +64,7 @@ export default function SessionPage() {
                         View Bills by session
                     </p>
                 </div>
-                {enrichedBills?.length ? <BillFeed bills={enrichedBills} userId="guest"  /> : null}
+                {enrichedBills?.length ? <BillFeed bills={enrichedBills} /> : null}
             </main>
         </div>
     )
