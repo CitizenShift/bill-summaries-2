@@ -18,10 +18,9 @@ interface Bill {
 
 interface BillFeedProps {
   bills: any;
-  userId: string
 }
 
-export function BillFeed({ bills, userId }: BillFeedProps) {
+export function BillFeed({ bills }: BillFeedProps) {
   if (bills.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -42,7 +41,7 @@ export function BillFeed({ bills, userId }: BillFeedProps) {
   return (
     <div className="space-y-6">
       {billsToDisplay.map((bill: any, index: number) => (
-        <BillCard key={index} bill={bill} userId={userId} />
+        <BillCard key={index} bill={bill} />
       ))}
     </div>
   )
