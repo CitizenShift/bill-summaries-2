@@ -3,6 +3,8 @@ import { createClient } from "@/app/utils/supabase/server";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/db/prisma";
 
+export const runtime = "nodejs";
+
 export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
