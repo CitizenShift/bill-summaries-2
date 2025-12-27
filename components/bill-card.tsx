@@ -26,10 +26,6 @@ interface Bill {
   status: string
   policy_area: string
   introduced_date: string
-  upvotes: number
-  downvotes: number
-  userVote: "upvote" | "downvote" | null
-  commentCount: number
 }
 
 interface BillCardProps {
@@ -47,7 +43,6 @@ export function BillCard({ bill, isPremium = false }: BillCardProps) {
   const [showContactDialog, setShowContactDialog] = useState(false)
   const [showDetailsDialog, setShowDetailsDialog] = useState(false)
   const [showShareDialog, setShowShareDialog] = useState(false)
-  const [isSaved, setIsSaved] = useState(false)
   const [isTracked, setIsTracked] = useState(false)
   const { toast } = useToast()
 
@@ -117,37 +112,64 @@ export function BillCard({ bill, isPremium = false }: BillCardProps) {
     }
   });
 
-  const handleSave = () => {
-    setIsSaved(!isSaved)
-    toast({
-      title: isSaved ? "Bill unsaved" : "Bill saved",
-      description: isSaved ? "Removed from your saved bills" : "Added to your saved bills",
-    })
+  const getSavedStatus = async () => {
+    try {
+      const response: any = await apiService.get(`/api/saved_bills/${bill.id}`);
+      return response?.saved;
+    } catch (error) {
+      console.log(error)
+    }
   }
 
-  const handleTrack = () => {
-    if (!isPremium) {
-      toast({
-        title: "Premium Feature",
-        description: "Upgrade to premium to track bills and get notifications on updates",
-        variant: "destructive",
-      })
-      return
+  const { data: isSaved } = useQuery({
+    queryKey: ["getSavedStatus", bill.id],
+    queryFn: getSavedStatus,
+    enabled: isInView,
+    staleTime: 60_000
+  });
+
+  const handleSave = async () => {
+    try {
+      if (!isSaved) {
+        const response: any = await apiService.post(`/api/saved_bills?billId=${bill.id}`, {});
+      } else {
+        const response: any = await apiService.delete(`/api/saved_bills/${bill.id}`);
+      }
+    } catch (error) {
+      console.log(error);
     }
-    setIsTracked(!isTracked)
-    toast({
-      title: isTracked ? "Stopped tracking" : "Now tracking",
-      description: isTracked
-          ? "You will no longer receive updates on this bill"
-          : "You will receive notifications when this bill is updated",
-    })
   }
+
+  const saveMutation = useMutation({
+    mutationFn: handleSave,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["getSavedStatus", bill.id] });
+    }
+  });
+
+  // const handleTrack = () => {
+  //   if (!isPremium) {
+  //     toast({
+  //       title: "Premium Feature",
+  //       description: "Upgrade to premium to track bills and get notifications on updates",
+  //       variant: "destructive",
+  //     })
+  //     return
+  //   }
+  //   setIsTracked(!isTracked)
+  //   toast({
+  //     title: isTracked ? "Stopped tracking" : "Now tracking",
+  //     description: isTracked
+  //         ? "You will no longer receive updates on this bill"
+  //         : "You will receive notifications when this bill is updated",
+  //   })
+  // }
 
   const getLevelColor = (level: string) => {
     switch (level) {
-      case "federal":
+      case "Federal":
         return "bg-blue-500/10 text-blue-700 dark:text-blue-400"
-      case "state":
+      case "State":
         return "bg-green-500/10 text-green-700 dark:text-green-400"
       case "municipal":
         return "bg-purple-500/10 text-purple-700 dark:text-purple-400"
@@ -222,28 +244,29 @@ export function BillCard({ bill, isPremium = false }: BillCardProps) {
                   variant="ghost"
                   size="sm"
                   className={cn("gap-2", isSaved && "text-amber-600 dark:text-amber-400")}
-                  onClick={handleSave}
+                  onClick={() => saveMutation.mutate()}
+                  disabled={saveMutation?.isPending}
               >
                 <Bookmark className={cn("h-4 w-4", isSaved && "fill-current")} />
                 <span className="text-sm">Save</span>
               </Button>
-              <Button
-                  variant="ghost"
-                  size="sm"
-                  className={cn(
-                      "gap-2",
-                      isTracked && isPremium && "text-blue-600 dark:text-blue-400",
-                      !isPremium && "opacity-70",
-                  )}
-                  onClick={handleTrack}
-              >
-                {!isPremium ? (
-                    <Lock className="h-4 w-4" />
-                ) : (
-                    <Bell className={cn("h-4 w-4", isTracked && "fill-current")} />
-                )}
-                <span className="text-sm">Track</span>
-              </Button>
+              {/*<Button*/}
+              {/*    variant="ghost"*/}
+              {/*    size="sm"*/}
+              {/*    className={cn(*/}
+              {/*        "gap-2",*/}
+              {/*        isTracked && isPremium && "text-blue-600 dark:text-blue-400",*/}
+              {/*        !isPremium && "opacity-70",*/}
+              {/*    )}*/}
+              {/*    onClick={handleTrack}*/}
+              {/*>*/}
+              {/*  {!isPremium ? (*/}
+              {/*      <Lock className="h-4 w-4" />*/}
+              {/*  ) : (*/}
+              {/*      <Bell className={cn("h-4 w-4", isTracked && "fill-current")} />*/}
+              {/*  )}*/}
+              {/*  <span className="text-sm">Track</span>*/}
+              {/*</Button>*/}
               <Button variant="ghost" size="sm" className="gap-2" onClick={() => setShowShareDialog(true)}>
                 <Share2 className="h-4 w-4" />
                 <span className="text-sm">Share</span>

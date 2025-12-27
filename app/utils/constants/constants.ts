@@ -50,3 +50,21 @@ export const states = [
     { name: "Wisconsin", code: "WI" },
     { name: "Wyoming", code: "WY" },
 ];
+
+export const shuffle = <T,>(array: T[]): T[] => {
+    const arr = [...array];
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+};
+
+export const LEGISCAN_STATUS_LABELS: Record<number, string> = {
+    1: "Introduced",
+    2: "Engrossed",
+    3: "Enrolled",
+    4: "Passed",
+    5: "Vetoed",
+    6: "Failed"
+};
