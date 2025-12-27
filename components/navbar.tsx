@@ -27,14 +27,16 @@ const Navbar = () => {
             <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
                 <h1 className="text-xl font-bold hover:cursor-pointer"><Link href="/">Bill Summaries</Link></h1>
                 <div className="flex items-center justify-center gap-x-4">
-                    <nav className="flex items-center gap-4">
-                        <Link href="/saved">
-                            <Button variant="ghost" className="gap-2">
-                                <FolderIcon className="h-4 w-4" />
-                                Saved Bills
-                            </Button>
-                        </Link>
-                    </nav>
+                    {user ? (
+                        <nav className="flex items-center gap-4">
+                            <Link href="/saved">
+                                <Button variant="ghost" className="gap-2">
+                                    <FolderIcon className="h-4 w-4"/>
+                                    Saved Bills
+                                </Button>
+                            </Link>
+                        </nav>
+                    ) : null}
                     <Button variant={user ? "outline" : "default"} onClick={handleButtonClick}>
                         {user ? "Sign Out" : "Login"}
                     </Button>
