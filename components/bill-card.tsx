@@ -124,7 +124,7 @@ export function BillCard({ bill, isPremium = false }: BillCardProps) {
   const { data: isSaved } = useQuery({
     queryKey: ["getSavedStatus", bill.id],
     queryFn: getSavedStatus,
-    enabled: isInView,
+    enabled: isInView && !!user,
     staleTime: 60_000
   });
 
@@ -240,16 +240,18 @@ export function BillCard({ bill, isPremium = false }: BillCardProps) {
                 <MessageSquare className="h-4 w-4"/>
                 <span className="text-sm">{comments?.length}</span>
               </Button>) : null}
-              <Button
-                  variant="ghost"
-                  size="sm"
-                  className={cn("gap-2", isSaved && "text-amber-600 dark:text-amber-400")}
-                  onClick={() => saveMutation.mutate()}
-                  disabled={saveMutation?.isPending}
-              >
-                <Bookmark className={cn("h-4 w-4", isSaved && "fill-current")} />
-                <span className="text-sm">Save</span>
-              </Button>
+              {user ? (
+                  <Button
+                      variant="ghost"
+                      size="sm"
+                      className={cn("gap-2", isSaved && "text-amber-600 dark:text-amber-400")}
+                      onClick={() => saveMutation.mutate()}
+                      disabled={saveMutation?.isPending}
+                  >
+                    <Bookmark className={cn("h-4 w-4", isSaved && "fill-current")} />
+                    <span className="text-sm">Save</span>
+                  </Button>
+              ) : null}
               {/*<Button*/}
               {/*    variant="ghost"*/}
               {/*    size="sm"*/}
