@@ -27,9 +27,9 @@ interface BillDetailsDialogProps {
 export function BillDetailsDialog({ bill, open, onOpenChange }: BillDetailsDialogProps) {
     const getLevelColor = (level: string) => {
         switch (level) {
-            case "federal":
+            case "Federal":
                 return "bg-blue-500/10 text-blue-700 dark:text-blue-400"
-            case "state":
+            case "State":
                 return "bg-green-500/10 text-green-700 dark:text-green-400"
             case "municipal":
                 return "bg-purple-500/10 text-purple-700 dark:text-purple-400"

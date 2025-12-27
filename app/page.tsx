@@ -1,61 +1,61 @@
 "use client"
-import { DataTable } from "@/components/data-table";
 import { useQuery } from "@tanstack/react-query";
 import { useApiService } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
-import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useMemo } from "react";
+import { shuffle } from "@/app/utils/constants/constants";
+import { BillFeed } from "@/components/bill-feed"
 
 export default function HomePage() {
   const apiService = useApiService();
   const { user } = useAuth();
   const state = user?.user_metadata?.state || "FL";
-  const [billLevel, setBillLevel] = useState<string>("federal");
 
-  const getFederalBills = async () => {
+  const getMasterList = async () => {
     try {
-      const response: any = await apiService.get(`/api/sessions?state=US`);
-      return response?.data?.sessions;
+      const response: any = await apiService.get(`/api/masterlist?state=${state}`);
+      return response?.data;
     } catch (error) {
       console.log(error);
     }
   }
 
-  const { data: federalBills } = useQuery({
-    queryKey: ["federalBills"],
-    queryFn: getFederalBills,
+  const { data: allBills } = useQuery({
+    queryKey: ["masterlist"],
+    queryFn: getMasterList,
   });
 
-  const getSessions = async () => {
-    try {
-      const response: any = await apiService.get(`/api/sessions?state=${state}`);
-      return response?.data?.sessions;
-    } catch (error: any) {
-      console.error(error);
-    }
-  }
+  const enrichedBills = useMemo(() => {
+    const federalBillsRaw = Object.values(allBills?.federal?.masterlist || []);
+    const federalBillsMapped = federalBillsRaw.map((bill: any) => ({
+      id: bill?.bill_id,
+      bill_number: bill?.number,
+      title: bill?.title,
+      summary: bill?.description,
+      level: "Federal",
+      jurisdiction: "United States",
+      status: bill?.status,
+      policy_area: "Unknown",
+      introduced_date: bill?.status_date,
+    }));
 
-  const { data: sessions, isLoading, error } = useQuery({
-    queryKey: ["sessions"],
-    queryFn: getSessions,
-  });
+    const stateBillsRaw = Object.values(allBills?.state?.masterlist || []);
+    const stateBillsMapped = stateBillsRaw.map((bill: any) => ({
+      id: bill?.bill_id,
+      bill_number: bill?.number,
+      title: bill?.title,
+      summary: bill?.description,
+      level: "State",
+      jurisdiction: "United States",
+      status: bill?.status,
+      policy_area: "Unknown",
+      introduced_date: bill?.status_date,
+    }));
 
-  const sessionRows = sessions?.map((session: any) => ({
-    session_id: session?.session_id,
-    state_abbr: session?.state_abbr,
-    session_tag: session?.session_tag,
-    name: session?.name,
-  })) || [];
+    const combinedBills = [...federalBillsMapped, ...stateBillsMapped];
 
-  const federalRows = federalBills?.map((session: any) => ({
-    session_id: session?.session_id,
-    state_abbr: session?.state_abbr,
-    session_tag: session?.session_tag,
-    name: session?.name,
-  })) || [];
-
-  const rows = billLevel === "federal" ? federalRows : sessionRows;
-  const level = billLevel === "federal" ? "Federal" : "State";
+    return shuffle(combinedBills);
+  }, [allBills]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -66,18 +66,7 @@ export default function HomePage() {
             Browse bill summaries from federal, state, and local governments
           </p>
         </div>
-        <div className="w-full flex items-center justify-center gap-x-2">
-          <Button onClick={() => setBillLevel("federal")} className="cursor-pointer">
-            Federal
-          </Button>
-          <Button variant="outline" onClick={() => setBillLevel("state")} className="cursor-pointer">
-            State
-          </Button>
-        </div>
-        {rows?.length ? (
-            <DataTable rows={rows} level={level} />
-        ) : null}
-        {/*<BillFeed bills={enrichedBills} userId="guest" />*/}
+        <BillFeed bills={enrichedBills} />
       </main>
     </div>
   )
