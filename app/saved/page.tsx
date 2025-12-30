@@ -11,6 +11,8 @@ import { useApiService } from "@/services/api";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { LEGISCAN_STATUS_LABELS } from "@/app/utils/constants/constants";
+import { Spinner } from "@/components/ui/spinner"
+import { Skeleton } from "@/components/ui/skeleton"
 
 type Bill = {
     id: string
@@ -53,7 +55,7 @@ export default function SavedBillsPage() {
         }
     }
 
-    const { data: saved } = useQuery({
+    const { data: saved, isLoading } = useQuery({
         queryKey: ["savedBills"],
         queryFn: fetchSavedBills,
         enabled: !!user?.id,
@@ -86,6 +88,80 @@ export default function SavedBillsPage() {
             return matchesSearch
         });
     }, [searchQuery, savedBills]);
+
+    if (isLoading) {
+        return (
+            <div className="min-h-screen bg-background">
+                <main className="container mx-auto px-4 py-8">
+                    <div className="space-y-6">
+                        {/* Controls */}
+                        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                            <div className="relative flex-1 md:max-w-md">
+                                <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                <Input
+                                    placeholder="Search saved bills..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="pl-9"
+                                    disabled
+                                />
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <div className="flex rounded-lg border">
+                                    <Button
+                                        variant={viewMode === "grid" ? "secondary" : "ghost"}
+                                        size="icon"
+                                        onClick={() => setViewMode("grid")}
+                                        className="rounded-r-none"
+                                        disabled
+                                    >
+                                        <Grid3x3Icon className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                        variant={viewMode === "list" ? "secondary" : "ghost"}
+                                        size="icon"
+                                        onClick={() => setViewMode("list")}
+                                        className="rounded-l-none"
+                                        disabled
+                                    >
+                                        <ListIcon className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Loading State */}
+                        <div className="flex flex-col items-center justify-center py-12">
+                            <Spinner className="h-8 w-8 text-primary mb-4" />
+                            <p className="text-sm text-muted-foreground">Loading saved bills...</p>
+                        </div>
+
+                        {/* Skeleton loaders */}
+                        <div className={viewMode === "grid" ? "grid gap-6 md:grid-cols-2" : "space-y-4"}>
+                            {[...Array(4)].map((_, i) => (
+                                <Card key={i} className="transition-shadow">
+                                    <CardHeader>
+                                        <div className="flex gap-2 mb-2">
+                                            <Skeleton className="h-6 w-20" />
+                                            <Skeleton className="h-6 w-24" />
+                                            <Skeleton className="h-6 w-16" />
+                                        </div>
+                                        <Skeleton className="h-6 w-3/4 mb-2" />
+                                        <Skeleton className="h-4 w-1/2" />
+                                    </CardHeader>
+                                    <CardContent>
+                                        <Skeleton className="h-4 w-full mb-2" />
+                                        <Skeleton className="h-4 w-full mb-2" />
+                                        <Skeleton className="h-4 w-2/3" />
+                                    </CardContent>
+                                </Card>
+                            ))}
+                        </div>
+                    </div>
+                </main>
+            </div>
+        )
+    }
 
     return (
         <div className="min-h-screen bg-background">

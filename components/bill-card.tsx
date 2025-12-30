@@ -8,13 +8,14 @@ import { useState } from "react"
 import { cn } from "@/lib/utils"
 import { CommentsSection } from "@/components/comments-section"
 import { ContactLegislatorDialog } from "@/components/contact-legislator-dialog"
-import { BillDetailsDialog } from "@/components/bill-details-dialog"
 import { ShareDialog } from "@/components/share-dialog"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useApiService } from "@/services/api";
 import { useInView } from "@/hooks/use-in-view";
+import { useRouter } from "next/navigation";
+import { LEGISCAN_STATUS_LABELS } from "@/app/utils/constants/constants";
 
 interface Bill {
   id: string
@@ -38,10 +39,10 @@ export function BillCard({ bill, isPremium = false }: BillCardProps) {
   const { user } = useAuth();
   const apiService = useApiService();
   const queryClient = useQueryClient();
+  const router = useRouter();
   const [userVote, setUserVote] = useState<"upvote" | "downvote" | null>(null);
   const [showComments, setShowComments] = useState(false)
   const [showContactDialog, setShowContactDialog] = useState(false)
-  const [showDetailsDialog, setShowDetailsDialog] = useState(false)
   const [showShareDialog, setShowShareDialog] = useState(false)
   const [isTracked, setIsTracked] = useState(false)
   const { toast } = useToast()
@@ -129,22 +130,46 @@ export function BillCard({ bill, isPremium = false }: BillCardProps) {
   });
 
   const handleSave = async () => {
-    try {
-      if (!isSaved) {
-        const response: any = await apiService.post(`/api/saved_bills?billId=${bill.id}`, {});
-      } else {
-        const response: any = await apiService.delete(`/api/saved_bills/${bill.id}`);
-      }
-    } catch (error) {
-      console.log(error);
+    if (!isSaved) {
+      const response: any = await apiService.post(`/api/saved_bills?billId=${bill.id}`, {});
+      return { saved: true };
+    } else {
+      const response: any = await apiService.delete(`/api/saved_bills/${bill.id}`);
+      return { saved: false };
     }
   }
 
   const saveMutation = useMutation({
     mutationFn: handleSave,
+    onMutate: async () => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["getSavedStatus", bill.id] });
+
+      // Snapshot the previous value
+      const previousSavedStatus = queryClient.getQueryData(["getSavedStatus", bill.id]);
+      const wasSaved = previousSavedStatus ?? isSaved;
+
+      // Optimistically update to the new value
+      queryClient.setQueryData(["getSavedStatus", bill.id], !wasSaved);
+
+      // Return context with the snapshotted value
+      return { previousSavedStatus, wasSaved };
+    },
+    onError: (err, variables, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      if (context?.previousSavedStatus !== undefined) {
+        queryClient.setQueryData(["getSavedStatus", bill.id], context.previousSavedStatus);
+      }
+      const wasSaved = context?.wasSaved ?? isSaved;
+      toast({
+        variant: "destructive",
+        description: `Failed to ${wasSaved ? "unsave" : "save"} bill. Please try again.`,
+      });
+    },
     onSuccess: () => {
+      // Invalidate to refetch and ensure we have the latest data
       queryClient.invalidateQueries({ queryKey: ["getSavedStatus", bill.id] });
-    }
+    },
   });
 
   // const handleTrack = () => {
@@ -178,6 +203,21 @@ export function BillCard({ bill, isPremium = false }: BillCardProps) {
     }
   }
 
+  // Convert status to string label if it's a number
+  const getStatusLabel = (status: string | number): string => {
+    if (typeof status === 'number') {
+      return LEGISCAN_STATUS_LABELS[status] ?? "Unknown"
+    }
+    // If it's already a string but might be a number string, try to convert
+    const statusNumber = parseInt(status as string)
+    if (!isNaN(statusNumber) && LEGISCAN_STATUS_LABELS[statusNumber]) {
+      return LEGISCAN_STATUS_LABELS[statusNumber]
+    }
+    return status as string
+  }
+
+  const statusLabel = getStatusLabel(bill.status)
+
   return (
       <div ref={ref}>
         <Card className="overflow-hidden">
@@ -188,19 +228,20 @@ export function BillCard({ bill, isPremium = false }: BillCardProps) {
                   {bill.level}
                 </Badge>
                 <Badge variant="secondary">{bill.policy_area}</Badge>
+                <Badge variant="outline">{statusLabel}</Badge>
               </div>
               <span className="text-xs text-muted-foreground">{bill.jurisdiction}</span>
             </div>
             <div>
               <h3
                   className="text-balance text-lg font-semibold leading-tight cursor-pointer hover:text-primary transition-colors"
-                  onClick={() => setShowDetailsDialog(true)}
+                  onClick={() => router.push(`/bills/${bill.id}`)}
               >
                 {bill.title}
               </h3>
               <p
                   className="mt-1 text-xs text-muted-foreground cursor-pointer hover:text-primary transition-colors"
-                  onClick={() => setShowDetailsDialog(true)}
+                  onClick={() => router.push(`/bills/${bill.id}`)}
               >
                 {bill.bill_number}
               </p>
@@ -282,8 +323,6 @@ export function BillCard({ bill, isPremium = false }: BillCardProps) {
 
           {showComments && user && <CommentsSection billId={bill.id} userId={user?.id} comments={comments} isLoading={isLoading} />}
         </Card>
-
-        <BillDetailsDialog bill={bill} open={showDetailsDialog} onOpenChange={setShowDetailsDialog} />
 
         <ShareDialog bill={bill} open={showShareDialog} onOpenChange={setShowShareDialog} />
 
